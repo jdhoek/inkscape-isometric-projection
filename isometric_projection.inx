@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <_name>Isometric Projection</_name>
+  <id>nl.jeroenhoek.inkscape.filter.isometric_projection_tool</id>
+  <dependency type="executable" location="extensions">isometric_projection.py</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <param name="conversion" type="optiongroup" gui-text="Convert flat projection to">
+    <option value="top">Isometric top side</option>
+    <option value="left">Isometric left-hand side</option>
+    <option value="right">Isometric right-hand side</option>
+  </param>
+  <param name="reverse" type="boolean" gui-text="Reverse transformation">false</param>
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+       <submenu _name="Axonometric Projection"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">isometric_projection.py</command>
+  </script>
+</inkscape-extension>
+
