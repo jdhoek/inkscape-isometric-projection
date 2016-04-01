@@ -4,13 +4,13 @@
 import sys
 sys.path.append('/usr/share/inkscape/extensions')
 
+import math
+
 import inkex
 inkex.localize()
 
-from simpletransform import * 
-from simplestyle import *
+from simpletransform import parseTransform, formatTransform
 
-import math
 
 class IsometricProjectionTools(inkex.Effect):
     """
@@ -21,7 +21,7 @@ class IsometricProjectionTools(inkex.Effect):
     # Precomputed values for sine, cosine, and tangent of 30°.
     rad_30 = math.radians(30)
     cos_30 = math.cos(rad_30)
-    sin_30 = 0.5 # No point in using math.sin for 30°.
+    sin_30 = 0.5  # No point in using math.sin for 30°.
     tan_30 = math.tan(rad_30)
 
     # Combined affine transformation matrices. The bottom row of these 3×3
@@ -31,7 +31,7 @@ class IsometricProjectionTools(inkex.Effect):
         #   * scale vertically by cos(30°)
         #   * shear horizontally by -30°
         #   * rotate clock-wise 30°
-        'to_top':       [[cos_30,       -cos_30,    0], 
+        'to_top':       [[cos_30,       -cos_30,    0],
                          [sin_30,       sin_30,     0]],
 
         # From 2D to isometric left-hand side view:
@@ -73,13 +73,15 @@ class IsometricProjectionTools(inkex.Effect):
 
         inkex.Effect.__init__(self)
 
-        self.OptionParser.add_option('-c', '--conversion', action = 'store',
-                type = 'string', dest = 'conversion', default = 'top',
-                help = 'Conversion to perform: (top|left|right)')
-        self.OptionParser.add_option('-r', '--reverse', action = 'store',
-                type = 'string', dest = 'reverse', default = "false",
-                help = 'Reverse the transformation from isometric projection '
-                       'to flat 2D')
+        self.OptionParser.add_option(
+            '-c', '--conversion', action='store', type='string',
+            dest='conversion', default='top',
+            help='Conversion to perform: (top|left|right)')
+        self.OptionParser.add_option(
+            '-r', '--reverse', action='store', type='string',
+            dest='reverse', default="false",
+            help='Reverse the transformation from isometric projection ' +
+            'to flat 2D')
 
     def effect(self):
         """
@@ -87,7 +89,7 @@ class IsometricProjectionTools(inkex.Effect):
         attribute, it will be combined with the transformation matrix for the
         requested conversion.
         """
-       
+
         if self.options.reverse == "true":
             conversion = "from_" + self.options.conversion
         else:
@@ -95,20 +97,20 @@ class IsometricProjectionTools(inkex.Effect):
 
         if len(self.selected) == 0:
             inkex.errormsg(_("Please select an object to perform the " +
-                    "isometric projection transformation on."))
+                             "isometric projection transformation on."))
             return
 
         # Default to the flat 2D to isometric top down view conversion if an
         # invalid identifier is passed.
         effect_matrix = self.transformations.get(
-                conversion, self.transformations.get('to_top'))
+            conversion, self.transformations.get('to_top'))
 
         for id, node in self.selected.iteritems():
             transform = node.get("transform")
             # Combine our transformation matrix with any pre-existing
             # transform.
             matrix = parseTransform(transform, effect_matrix)
-            node.set('transform', formatTransform(matrix))    
+            node.set('transform', formatTransform(matrix))
 
 # Create effect instance and apply it.
 effect = IsometricProjectionTools()
