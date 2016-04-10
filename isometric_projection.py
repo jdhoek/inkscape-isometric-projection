@@ -5,6 +5,7 @@ import math
 import sys
 import inkex
 from simpletransform import parseTransform, formatTransform
+from simpletransform import computeBBox, applyTransformToPoint
 
 sys.path.append('/usr/share/inkscape/extensions')
 inkex.localize()
@@ -15,6 +16,9 @@ class IsometricProjectionTools(inkex.Effect):
     Convert a flat 2D projection to one of the three visible sides in an
     isometric projection, and vice versa.
     """
+
+    attrTransformCenterX = inkex.addNS('transform-center-x', 'inkscape')
+    attrTransformCenterY = inkex.addNS('transform-center-y', 'inkscape')
 
     # Precomputed values for sine, cosine, and tangent of 30°.
     rad_30 = math.radians(30)
@@ -81,6 +85,68 @@ class IsometricProjectionTools(inkex.Effect):
             help='Reverse the transformation from isometric projection ' +
             'to flat 2D')
 
+    def getTransformCenter(self, midpoint, node):
+        """
+        Find the transformation center of an object. If the user set it
+        manually by dragging it in Inkscape, those coordinates are used.
+        Otherwise, an attempt is made to find the center of the object's
+        bounding box.
+        """
+
+        c_x = node.get(self.attrTransformCenterX)
+        c_y = node.get(self.attrTransformCenterY)
+
+        # Default to dead-center.
+        if c_x is None:
+            c_x = 0.0
+        else:
+            c_x = float(c_x)
+        if c_y is None:
+            c_y = 0.0
+        else:
+            c_y = float(c_y)
+
+        x = midpoint[0] + c_x
+        y = midpoint[1] - c_y
+
+        return [x, y]
+
+    def getMidPoint(self, bbox, node):
+        """
+        Get the coordinates of the center of the bounding box.
+        """
+
+        x = bbox[1] - (bbox[1] - bbox[0]) / 2
+        y = bbox[3] - (bbox[3] - bbox[2]) / 2
+
+        return [x, y]
+
+    def translateBetweenPoints(self, matrix, here, there):
+        """
+        Add a translation to a matrix that moves between two points.
+        """
+
+        x = there[0] - here[0]
+        y = there[1] - here[1]
+        matrix[0][2] += x
+        matrix[1][2] += y
+
+    def moveTransformationCenter(self, node, midpoint, center_new):
+        """
+        If a transformation center is manually set on the node, move it to
+        match the transformation performed on the node.
+        """
+
+        c_x = node.get(self.attrTransformCenterX)
+        c_y = node.get(self.attrTransformCenterY)
+
+        if c_x is not None:
+            x = str(center_new[0] - midpoint[0])
+            node.set(self.attrTransformCenterX, x)
+        if c_y is not None:
+            y = str(midpoint[1] - center_new[1])
+            node.set(self.attrTransformCenterY, y)
+
     def effect(self):
         """
         Apply the transformation. If an element already has a transformation
@@ -104,11 +170,28 @@ class IsometricProjectionTools(inkex.Effect):
             conversion, self.transformations.get('to_top'))
 
         for id, node in self.selected.iteritems():
+            bbox = computeBBox([node])
+            midpoint = self.getMidPoint(bbox, node)
+            center_old = self.getTransformCenter(midpoint, node)
             transform = node.get("transform")
             # Combine our transformation matrix with any pre-existing
             # transform.
             matrix = parseTransform(transform, effect_matrix)
+
+            # Compute the location of the transformation center after applying
+            # the transformation matrix.
+            center_new = center_old[:]
+            applyTransformToPoint(matrix, center_new)
+            applyTransformToPoint(matrix, midpoint)
+
+            # Add a translation transformation that will move the object to
+            # keep its transformation center in the same place.
+            self.translateBetweenPoints(matrix, center_new, center_old)
+
             node.set('transform', formatTransform(matrix))
+
+            # Adjust the transformation center.
+            self.moveTransformationCenter(node, midpoint, center_new)
 
 # Create effect instance and apply it.
 effect = IsometricProjectionTools()
