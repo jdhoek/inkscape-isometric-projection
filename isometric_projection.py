@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-sys.path.append('/usr/share/inkscape/extensions')
-
 import math
-
+import sys
 import inkex
-inkex.localize()
-
 from simpletransform import parseTransform, formatTransform
+
+sys.path.append('/usr/share/inkscape/extensions')
+inkex.localize()
 
 
 class IsometricProjectionTools(inkex.Effect):
