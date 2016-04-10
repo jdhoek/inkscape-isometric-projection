@@ -41,10 +41,3 @@ in the extension.
 To perform the opposite action (i.e., convert from one of the isometric sides
 to a flat two-dimensional object) select the appropiate isometric side, and
 enable the *Reverse transformation* option.
-
-## Known bugs
-
-The transformation is performed relative to the document's origin. This means
-that transformed objects will be moved away from their current location. So if
-your object seems to have disappeared after applying the effect of this
-extension, zoom out a bit to locate it.
