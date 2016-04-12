@@ -41,3 +41,9 @@ in the extension.
 To perform the opposite action (i.e., convert from one of the isometric sides
 to a flat two-dimensional object) select the appropiate isometric side, and
 enable the *Reverse transformation* option.
+
+## Further reading
+
+More information about the transformations and maths used by this extension can 
+be found in this 
+[write-up](http://jeroenhoek.nl/articles/svg-and-isometric-projection.html).
