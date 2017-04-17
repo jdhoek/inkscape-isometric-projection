@@ -23,10 +23,11 @@ This extension conveniently automates these transformations.
 Copy `isometric_projection.inx` and `isometric_projection.py` to your Inkscape
 extensions directory:
 
-| OS                        | Path                                       |
-| ------------------------- | ------------------------------------------ |
-| GNU/Linux & Mac OS X      | `~/.config/inkscape/extensions/`           |
-| Windows                   | `Program Files\Inkscape\share\extensions\` |
+| OS                        | Path                                               |
+| ------------------------- | -------------------------------------------------- |
+| GNU/Linux & Mac OS X      | `~/.config/inkscape/extensions/`                   |
+| Windows (32 bit)          | `C:\Program Files (x86)\Inkscape\share\extensions` |
+| Windows (64 bit)          | `C:\Program Files\Inkscape\share\extensions\`      |
 
 ## Usage
 
