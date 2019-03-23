@@ -169,7 +169,7 @@ class IsometricProjectionTools(inkex.Effect):
         effect_matrix = self.transformations.get(
             conversion, self.transformations.get('to_top'))
 
-        for id, node in self.selected.iteritems():
+        for id, node in self.selected.items():
             bbox = computeBBox([node])
             midpoint = self.getMidPoint(bbox, node)
             center_old = self.getTransformCenter(midpoint, node)
