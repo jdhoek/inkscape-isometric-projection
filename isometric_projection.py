@@ -4,11 +4,10 @@
 import math
 import sys
 import inkex
-from simpletransform import parseTransform, formatTransform
-from simpletransform import computeBBox, applyTransformToPoint
+from simpletransform import Transform
 
 sys.path.append('/usr/share/inkscape/extensions')
-inkex.localize()
+inkex.localization.localize()
 
 
 class IsometricProjectionTools(inkex.Effect):
@@ -75,12 +74,12 @@ class IsometricProjectionTools(inkex.Effect):
 
         inkex.Effect.__init__(self)
 
-        self.OptionParser.add_option(
-            '-c', '--conversion', action='store', type='string',
+        self.arg_parser.add_argument(
+            '-c', '--conversion',
             dest='conversion', default='top',
             help='Conversion to perform: (top|left|right)')
-        self.OptionParser.add_option(
-            '-r', '--reverse', action='store', type='string',
+        self.arg_parser.add_argument(
+            '-r', '--reverse',
             dest='reverse', default="false",
             help='Reverse the transformation from isometric projection ' +
             'to flat 2D')
@@ -121,15 +120,14 @@ class IsometricProjectionTools(inkex.Effect):
 
         return [x, y]
 
-    def translateBetweenPoints(self, matrix, here, there):
+    def translateBetweenPoints(self, tr, here, there):
         """
         Add a translation to a matrix that moves between two points.
         """
 
         x = there[0] - here[0]
         y = there[1] - here[1]
-        matrix[0][2] += x
-        matrix[1][2] += y
+        tr.add_translate(x, y)
 
     def moveTransformationCenter(self, node, midpoint, center_new):
         """
@@ -159,7 +157,7 @@ class IsometricProjectionTools(inkex.Effect):
         else:
             conversion = "to_" + self.options.conversion
 
-        if len(self.selected) == 0:
+        if len(self.svg.selected) == 0:
             inkex.errormsg(_("Please select an object to perform the " +
                              "isometric projection transformation on."))
             return
@@ -169,30 +167,31 @@ class IsometricProjectionTools(inkex.Effect):
         effect_matrix = self.transformations.get(
             conversion, self.transformations.get('to_top'))
 
-        for id, node in self.selected.items():
-            bbox = computeBBox([node])
+        for id, node in self.svg.selected.items():
+            bbox = node.bounding_box()
             midpoint = self.getMidPoint(bbox, node)
             center_old = self.getTransformCenter(midpoint, node)
             transform = node.get("transform")
             # Combine our transformation matrix with any pre-existing
             # transform.
-            matrix = parseTransform(transform, effect_matrix)
+            tr = Transform(transform) * Transform(effect_matrix)
 
             # Compute the location of the transformation center after applying
             # the transformation matrix.
             center_new = center_old[:]
-            applyTransformToPoint(matrix, center_new)
-            applyTransformToPoint(matrix, midpoint)
+            #Transform(matrix).apply_to_point(center_new)
+            tr.apply_to_point(center_new)
+            tr.apply_to_point(midpoint)
 
             # Add a translation transformation that will move the object to
             # keep its transformation center in the same place.
-            self.translateBetweenPoints(matrix, center_new, center_old)
+            self.translateBetweenPoints(tr, center_new, center_old)
 
-            node.set('transform', formatTransform(matrix))
+            node.set('transform', str(tr))
 
             # Adjust the transformation center.
             self.moveTransformationCenter(node, midpoint, center_new)
 
 # Create effect instance and apply it.
 effect = IsometricProjectionTools()
-effect.affect()
+effect.run()
