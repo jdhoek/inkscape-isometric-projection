@@ -110,16 +110,6 @@ class IsometricProjectionTools(inkex.Effect):
 
         return [x, y]
 
-    def getMidPoint(self, bbox, node):
-        """
-        Get the coordinates of the center of the bounding box.
-        """
-
-        x = bbox[1] - (bbox[1] - bbox[0]) / 2
-        y = bbox[3] - (bbox[3] - bbox[2]) / 2
-
-        return [x, y]
-
     def translateBetweenPoints(self, tr, here, there):
         """
         Add a translation to a matrix that moves between two points.
@@ -169,7 +159,7 @@ class IsometricProjectionTools(inkex.Effect):
 
         for id, node in self.svg.selected.items():
             bbox = node.bounding_box()
-            midpoint = self.getMidPoint(bbox, node)
+            midpoint = [bbox.center_x, bbox.center_y]
             center_old = self.getTransformCenter(midpoint, node)
             transform = node.get("transform")
             # Combine our transformation matrix with any pre-existing
