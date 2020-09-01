@@ -24,13 +24,8 @@ This extension conveniently automates these transformations.
 ## Installation
 
 Copy `isometric_projection.inx` and `isometric_projection.py` to your Inkscape
-extensions directory:
-
-| OS                        | Path                                               |
-| ------------------------- | -------------------------------------------------- |
-| GNU/Linux & Mac OS X      | `~/.config/inkscape/extensions/`                   |
-| Windows (32 bit)          | `C:\Program Files (x86)\Inkscape\share\extensions` |
-| Windows (64 bit)          | `C:\Program Files\Inkscape\share\extensions\`      |
+extensions directory, listed at `Edit » Preferences » System: User extensions`. 
+After a restart of Inkscape, the new extension will be available.
 
 ## Usage
 
