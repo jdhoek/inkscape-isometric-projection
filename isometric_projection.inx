@@ -9,6 +9,7 @@
     <option value="right">Isometric right-hand side</option>
   </param>
   <param name="reverse" type="bool" gui-text="Reverse transformation">false</param>
+  <param name="orthoangle" type="float" precision="3" min="0" max="90" gui-text="Orthographic angle">30.000</param>
   <effect>
     <object-type>all</object-type>
     <effects-menu>
