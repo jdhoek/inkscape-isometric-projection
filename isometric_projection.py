@@ -18,7 +18,7 @@ class IsometricProjectionTools(inkex.Effect):
 
     attrTransformCenterX = inkex.addNS('transform-center-x', 'inkscape')
     attrTransformCenterY = inkex.addNS('transform-center-y', 'inkscape')
-   
+
 
     def __init__(self):
         """
@@ -34,20 +34,20 @@ class IsometricProjectionTools(inkex.Effect):
         self.arg_parser.add_argument(
             '-r', '--reverse', type=bool,
             dest='reverse', default="false",
-            help='Reverse the transformation from isometric projection ' +
+            help='Reverse the transformation from isometric projection '
             'to flat 2D')
         self.arg_parser.add_argument(
             '-i', '--orthoangle', type=float,
             dest='orthoangle', default="false",
             help='Isometric angle in degrees')
-            
-            
+
+
     def __initConstants(self, angle):
         # Precomputed values for sine, cosine, and tangent of orthoangle.
-        self.radAngle = math.radians(angle)
-        self.cos_val = math.cos(self.radAngle)
-        self.sin_val = math.sin(self.radAngle)
-        self.tan_val = math.tan(self.radAngle)
+        self.rad = math.radians(angle)
+        self.cos = math.cos(self.rad)
+        self.sin = math.sin(self.rad)
+        self.tan = math.tan(self.rad)
 
         # Combined affine transformation matrices. The bottom row of these 3×3
         # matrices is omitted; it is always [0, 0, 1].
@@ -56,41 +56,41 @@ class IsometricProjectionTools(inkex.Effect):
             #   * scale vertically by cos(orthoangle)
             #   * shear horizontally by -orthoangle
             #   * rotate clock-wise orthoangle
-            'to_top':       [[self.cos_val,        -self.cos_val,    0],
-                             [self.sin_val,         self.sin_val,    0]],
+            'to_top':       [[self.cos,         -self.cos,        0],
+                             [self.sin,         self.sin,         0]],
 
             # From 2D to isometric left-hand side view:
             #   * scale horizontally by cos(orthoangle)
             #   * shear vertically by -orthoangle
-            'to_left':      [[self.cos_val,        0,          0],
-                             [self.sin_val,        1,          0]],
+            'to_left':      [[self.cos,         0,                0],
+                             [self.sin,         1,                0]],
 
             # From 2D to isometric right-hand side view:
             #   * scale horizontally by cos(orthoangle)
             #   * shear vertically by orthoangle
-            'to_right':     [[self.cos_val ,       0,          0],
-                             [-self.sin_val,       1,          0]],
+            'to_right':     [[self.cos ,        0,                0],
+                             [-self.sin,        1,                0]],
 
             # From isometric top down view to 2D:
             #   * rotate counter-clock-wise orthoangle
             #   * shear horizontally by orthoangle
             #   * scale vertically by 1 / cos(orthoangle)
-            'from_top':     [[self.tan_val ,      1,          0],
-                             [-self.tan_val,      1,          0]],
+            'from_top':     [[self.tan ,        1,                0],
+                             [-self.tan,        1,                0]],
 
             # From isometric left-hand side view to 2D:
             #   * shear vertically by orthoangle
             #   * scale horizontally by 1 / cos(orthoangle)
-            'from_left':    [[1 / self.cos_val,   0,          0],
-                             [-self.tan_val,      1,          0]],
+            'from_left':    [[1 / self.cos,     0,                0],
+                             [-self.tan,        1,                0]],
 
             # From isometric right-hand side view to 2D:
             #   * shear vertically by -orthoangle
             #   * scale horizontally by 1 / cos(orthoangle)
-            'from_right':   [[1 / self.cos_val,   0,          0],
-                             [self.tan_val,       1,          0]]
+            'from_right':   [[1 / self.cos,     0,                0],
+                             [self.tan,         1,                0]]
         }
-        
+
     def getTransformCenter(self, midpoint, node):
         """
         Find the transformation center of an object. If the user set it
@@ -150,14 +150,14 @@ class IsometricProjectionTools(inkex.Effect):
         """
 
         self.__initConstants(self.options.orthoangle)
-        
+
         if self.options.reverse == "true":
             conversion = "from_" + self.options.conversion
         else:
             conversion = "to_" + self.options.conversion
 
         if len(self.svg.selected) == 0:
-            inkex.errormsg(_("Please select an object to perform the " +
+            inkex.errormsg(_("Please select an object to perform the "
                              "isometric projection transformation on."))
             return
 
