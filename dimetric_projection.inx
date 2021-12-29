@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-  <name>Isometric Projection</name>
-  <id>nl.jeroenhoek.inkscape.filter.isometric_projection_tool</id>
+  <name>Dimetric Projection</name>
+  <id>nl.jeroenhoek.inkscape.filter.dimetric_projection_tool</id>
   <dependency type="executable" location="extensions">axonometric_projection.py</dependency>
   <param name="conversion" type="optiongroup" gui-text="Convert flat projection to">
-    <option value="top">Isometric top side</option>
-    <option value="left">Isometric left-hand side</option>
-    <option value="right">Isometric right-hand side</option>
+    <option value="top">Dimetric top side</option>
+    <option value="left">Dimetric left-hand side</option>
+    <option value="right">Dimetric right-hand side</option>
   </param>
   <param name="reverse" type="bool" gui-text="Reverse transformation">false</param>
+  <param name="orthoangle" type="float" precision="3" min="0" max="90" gui-text="Orthographic angle">15.000</param>
   <effect>
     <object-type>all</object-type>
     <effects-menu>

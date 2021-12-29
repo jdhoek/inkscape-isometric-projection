@@ -4,7 +4,7 @@
 import math
 import sys
 import inkex
-from simpletransform import Transform
+from inkex.transforms import Transform
 
 sys.path.append('/usr/share/inkscape/extensions')
 inkex.localization.localize()
@@ -31,14 +31,16 @@ class IsometricProjectionTools(inkex.Effect):
             '-c', '--conversion',
             dest='conversion', default='top',
             help='Conversion to perform: (top|left|right)')
+        # Note: adding `type=bool` for the reverse option seems to break it when used
+        # from within Inkscape. Not sure why.
         self.arg_parser.add_argument(
-            '-r', '--reverse', type=bool,
+            '-r', '--reverse',
             dest='reverse', default="false",
             help='Reverse the transformation from isometric projection '
             'to flat 2D')
         self.arg_parser.add_argument(
             '-i', '--orthoangle', type=float,
-            dest='orthoangle', default="false",
+            dest='orthoangle', default="30",
             help='Isometric angle in degrees')
 
 
@@ -53,43 +55,29 @@ class IsometricProjectionTools(inkex.Effect):
         # matrices is omitted; it is always [0, 0, 1].
         self.transformations = {
             # From 2D to isometric top down view:
-            #   * scale vertically by cos(orthoangle)
-            #   * shear horizontally by -orthoangle
-            #   * rotate clock-wise orthoangle
-            'to_top':       [[self.cos,         -self.cos,        0],
-                             [self.sin,         self.sin,         0]],
+            #   * scale vertically by cos(∠)
+            #   * shear horizontally by -∠
+            #   * rotate clock-wise ∠
+            'to_top':       Transform(((self.cos,         -self.cos,        0),
+                                       (self.sin,         self.sin,         0))),
 
             # From 2D to isometric left-hand side view:
-            #   * scale horizontally by cos(orthoangle)
-            #   * shear vertically by -orthoangle
-            'to_left':      [[self.cos,         0,                0],
-                             [self.sin,         1,                0]],
+            #   * scale horizontally by cos(∠)
+            #   * shear vertically by -∠
+            'to_left':      Transform(((self.cos,         0,                0),
+                                       (self.sin,         1,                0))),
 
             # From 2D to isometric right-hand side view:
-            #   * scale horizontally by cos(orthoangle)
-            #   * shear vertically by orthoangle
-            'to_right':     [[self.cos ,        0,                0],
-                             [-self.sin,        1,                0]],
-
-            # From isometric top down view to 2D:
-            #   * rotate counter-clock-wise orthoangle
-            #   * shear horizontally by orthoangle
-            #   * scale vertically by 1 / cos(orthoangle)
-            'from_top':     [[self.tan ,        1,                0],
-                             [-self.tan,        1,                0]],
-
-            # From isometric left-hand side view to 2D:
-            #   * shear vertically by orthoangle
-            #   * scale horizontally by 1 / cos(orthoangle)
-            'from_left':    [[1 / self.cos,     0,                0],
-                             [-self.tan,        1,                0]],
-
-            # From isometric right-hand side view to 2D:
-            #   * shear vertically by -orthoangle
-            #   * scale horizontally by 1 / cos(orthoangle)
-            'from_right':   [[1 / self.cos,     0,                0],
-                             [self.tan,         1,                0]]
+            #   * scale horizontally by cos(∠)
+            #   * shear vertically by ∠
+            'to_right':     Transform(((self.cos ,        0,                0),
+                                       (-self.sin,        1,                0)))
         }
+
+        # The inverse matrices of the above perform the reverse transformations.
+        self.transformations['from_top'] = -self.transformations['to_top']
+        self.transformations['from_left'] = -self.transformations['to_left']
+        self.transformations['from_right'] = -self.transformations['to_right']
 
     def getTransformCenter(self, midpoint, node):
         """
@@ -170,10 +158,10 @@ class IsometricProjectionTools(inkex.Effect):
             bbox = node.bounding_box()
             midpoint = [bbox.center_x, bbox.center_y]
             center_old = self.getTransformCenter(midpoint, node)
-            transform = node.get("transform")
+            transform = Transform(node.get("transform"))
             # Combine our transformation matrix with any pre-existing
             # transform.
-            tr = Transform(transform) @ Transform(effect_matrix)
+            tr = transform @ effect_matrix
 
             # Compute the location of the transformation center after applying
             # the transformation matrix.
