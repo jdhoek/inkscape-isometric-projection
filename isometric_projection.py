@@ -164,7 +164,7 @@ class IsometricProjectionTools(inkex.Effect):
             transform = node.get("transform")
             # Combine our transformation matrix with any pre-existing
             # transform.
-            tr = Transform(transform) * Transform(effect_matrix)
+            tr = Transform(transform) @ Transform(effect_matrix)
 
             # Compute the location of the transformation center after applying
             # the transformation matrix.
