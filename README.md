@@ -5,7 +5,7 @@ Inkscape extension: isometric projection converter
 Inkscape, please use [v1.2](../../tree/v1.2).*
 
 This [Inkscape](https://inkscape.org) extension transforms objects drawn on a
-two-dimensional plane to an isometric projection.
+two-dimensional plane to an isometric or dimetric projection.
 
 Inkscape provides an [axonometric
 grid](https://en.wikipedia.org/wiki/Axonometric_projection) that by default is
@@ -20,26 +20,35 @@ This extension conveniently automates these transformations.
 
 ![Example created with this extension](doc/example.png)
 
+In addition to the isometric projection (a dimetric projection where both angles are 30°), the
+extension supports arbitrary angles as well (here the angles are set to 15°). 
+
+![A dimetric projection example](doc/dimetric.png)
 
 ## Installation
 
-Copy `isometric_projection.inx` and `isometric_projection.py` to your Inkscape
-extensions directory, listed at `Edit » Preferences » System: User extensions`. 
-After a restart of Inkscape, the new extension will be available.
+Copy `isometric_projection.inx`, `dimetric_projection.inx`, and `axonometric_projection.py` to your
+Inkscape extensions directory, listed at `Edit » Preferences » System: User extensions`.  After a
+restart of Inkscape, the new extension will be available.
 
 ## Usage
 
 The extension can now be found in the **Extensions** menu under `Axonometric
-Projection » Isometric Projection…`. To convert a flat two-dimensional object
+Projection`. To convert a flat two-dimensional object
 to one of the three visible isometric planes (i.e., top, left-hand side, and
 right-hand side), select the object, and perform select the desired conversion
-in the extension.
+via the `Isometric Projection…` entry from that submenu.
 
-![Extension settings](doc/dialog.png)
+![Extension settings (isometric)](doc/dialog.png)
 
 To perform the opposite action (i.e., convert from one of the isometric sides
 to a flat two-dimensional object) select the appropiate isometric side, and
 enable the *Reverse transformation* option.
+
+For dimetric projections using an angle other than 30°, use `Axonometric Projection » Dimetric
+Projection…`, and set the angle to an appropriate value.
+
+![Extension settings (dimetric)](doc/dimetric-dialog.png)
 
 ## Further reading
 
