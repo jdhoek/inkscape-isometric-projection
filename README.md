@@ -1,8 +1,9 @@
 Inkscape extension: isometric projection converter
 ==================================================
 
-*This version of the extension is for Inkscape 1.0 or later. For older versions of
-Inkscape, please use [v1.2](../../tree/v1.2).*
+*This version of the extension is for Inkscape `1.2` or newer. For older versions of
+Inkscape, please use [v2.1](../../tree/v2.1) (for Inkscape `1.0.*` and `1.1.*`), or
+[v1.2](../../tree/v1.2) (for Inkscape versions before `1.0`).*
 
 This [Inkscape](https://inkscape.org) extension transforms objects drawn on a
 two-dimensional plane to an isometric or dimetric projection.
