@@ -39,39 +39,72 @@ class IsometricProjectionTools(inkex.Effect):
             help='Reverse the transformation from isometric projection '
             'to flat 2D')
         self.arg_parser.add_argument(
-            '-i', '--orthoangle', type=float,
-            dest='orthoangle', default="30",
-            help='Isometric angle in degrees')
+            '-i', '--orthoangle_1', type=float,
+            dest='orthoangle_1', default="30",
+            help='Angle in degrees')
+        self.arg_parser.add_argument(
+            '-j', '--orthoangle_2', type=float,
+            dest='orthoangle_2',
+            help='Second angle in degrees, for dimetric projections')
 
 
-    def __initConstants(self, angle):
-        # Precomputed values for sine, cosine, and tangent of orthoangle.
-        self.rad = math.radians(angle)
-        self.cos = math.cos(self.rad)
-        self.sin = math.sin(self.rad)
-        self.tan = math.tan(self.rad)
+    def __initConstants(self, angle_1, angle_2):
+        angle_left = angle_1
+
+        self.rad_l = math.radians(angle_left)
+        self.cos_l = math.cos(self.rad_l)
+        self.sin_l = math.sin(self.rad_l)
+
+        if angle_2 is None or angle_2 == angle_1:
+            # Dimetric, where the two angles are the same. This includes the 30° isometric view.
+            angle_right = angle_1
+            self.rad_r = self.rad_l
+            self.cos_r = self.cos_l
+            self.sin_r = self.sin_l
+            self.top_c = -self.cos_l
+            self.top_d = self.sin_l
+        else:
+            # Trimetric, where the left and right angle differ.
+            angle_right = angle_2
+            self.rad_r = math.radians(angle_right)
+            self.cos_r = math.cos(self.rad_r)
+            self.sin_r = math.sin(self.rad_r)
+
+            # Combined values for trimetric transform of top piece.
+            self.rad_lp_r = math.radians(angle_left + angle_right)
+            self.sin_lp_r = math.sin(self.rad_lp_r)
+            self.shear_factor_top = math.sin(self.rad_lp_r)
+            self.tan_shear_top = math.tan(self.rad_l + self.rad_r - math.pi / 2)
+
+            self.top_c = self.shear_factor_top * (self.cos_l * self.tan_shear_top - self.sin_l)
+            self.top_d = self.shear_factor_top * (self.sin_l * self.tan_shear_top + self.cos_l)
 
         # Combined affine transformation matrices. The bottom row of these 3×3
         # matrices is omitted; it is always [0, 0, 1].
         self.transformations = {
-            # From 2D to isometric top down view:
+            # From 2D to isometric top down view (dimetric, isometric):
             #   * scale vertically by cos(∠)
             #   * shear horizontally by -∠
             #   * rotate clock-wise ∠
-            'to_top':       Transform(((self.cos,         -self.cos,        0),
-                                       (self.sin,         self.sin,         0))),
+            #
+            # From 2D to isometric top down view (trimetric):
+            #   * scale vertically by sin(∠(left) + ∠(right)
+            #   * shear horizontally by ∠(left) + ∠(right) - 90°
+            #   * rotate clock-wise ∠
+            'to_top':       Transform(((self.cos_l,        self.top_c,       0),
+                                       (self.sin_l,        self.top_d,       0))),
 
-            # From 2D to isometric left-hand side view:
+            # From 2D to axonometric left-hand side view:
             #   * scale horizontally by cos(∠)
             #   * shear vertically by -∠
-            'to_left':      Transform(((self.cos,         0,                0),
-                                       (self.sin,         1,                0))),
+            'to_left':      Transform(((self.cos_l,        0,                0),
+                                       (self.sin_l,        1,                0))),
 
-            # From 2D to isometric right-hand side view:
+            # From 2D to axonometric right-hand side view:
             #   * scale horizontally by cos(∠)
             #   * shear vertically by ∠
-            'to_right':     Transform(((self.cos ,        0,                0),
-                                       (-self.sin,        1,                0)))
+            'to_right':     Transform(((self.cos_r ,       0,                0),
+                                       (-self.sin_r,       1,                0)))
         }
 
         # The inverse matrices of the above perform the reverse transformations.
@@ -137,7 +170,7 @@ class IsometricProjectionTools(inkex.Effect):
         requested conversion.
         """
 
-        self.__initConstants(self.options.orthoangle)
+        self.__initConstants(self.options.orthoangle_1, self.options.orthoangle_2)
 
         if self.options.reverse == "true":
             conversion = "from_" + self.options.conversion
