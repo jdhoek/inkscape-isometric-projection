@@ -57,7 +57,6 @@ class IsometricProjectionTools(inkex.Effect):
 
         if angle_2 is None or angle_2 == angle_1:
             # Dimetric, where the two angles are the same. This includes the 30° isometric view.
-            angle_right = angle_1
             self.rad_r = self.rad_l
             self.cos_r = self.cos_l
             self.sin_r = self.sin_l
