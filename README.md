@@ -26,6 +26,10 @@ extension supports arbitrary angles as well (here the angles are set to 15°).
 
 ![A dimetric projection example](doc/dimetric.png)
 
+This example shows a trimetric projection with two different angles for the left and right hand sides.
+
+![A trimetric projection example](doc/trimetric.png)
+
 ## Installation
 
 Copy `isometric_projection.inx`, `dimetric_projection.inx`, and `axonometric_projection.py` to your
@@ -50,6 +54,9 @@ For dimetric projections using an angle other than 30°, use `Axonometric Projec
 Projection…`, and set the angle to an appropriate value.
 
 ![Extension settings (dimetric)](doc/dimetric-dialog.png)
+
+For trimetric projections using different angles for the left and right hand sides, use 
+`Axonometric Projection » Trimetric Projection…`, and set both angles to appropriate values.
 
 ## Further reading
 
