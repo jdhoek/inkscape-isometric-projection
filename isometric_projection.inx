@@ -3,14 +3,9 @@
   <name>Isometric Projection</name>
   <id>nl.jeroenhoek.inkscape.filter.isometric_projection_tool</id>
   <dependency type="executable" location="extensions">axonometric_projection.py</dependency>
-  <param name="conversion" type="optiongroup" gui-text="Convert flat projection to">
-    <option value="top">Isometric top side</option>
-    <option value="left">Isometric left-hand side</option>
-    <option value="right">Isometric right-hand side</option>
-  </param>
-  <param name="reverse" type="bool" gui-text="Reverse transformation">false</param>
   <effect>
     <object-type>all</object-type>
+    <menu-tip>Apply isometric transform to elements</menu-tip>
     <effects-menu>
        <submenu _name="Axonometric Projection"/>
     </effects-menu>
@@ -18,5 +13,20 @@
   <script>
     <command reldir="extensions" interpreter="python">axonometric_projection.py</command>
   </script>
+
+  <param name="projection-preset" type="string" gui-hidden="true">isometric</param>
+  
+  <param name="mode" type="optiongroup" appearance="combo"
+          gui-text="Mode" gui-description="Apply: set the transform, Remove: remove any existing iso/di/axono-metric transform">
+    <option value="apply">Apply</option>
+    <option value="remove">Remove</option>
+  </param>
+
+  <param name="model-preset" type="optiongroup"
+    gui-text="Set model pose to..." gui-description="">
+    <option value="top">top side.</option>
+    <option value="left">left-hand side.</option>
+    <option value="right">right-hand side.</option>
+  </param>
 </inkscape-extension>
 
