@@ -4,213 +4,221 @@
 import math
 import sys
 import inkex
-from inkex.transforms import Transform
+from inkex import Effect, Transform
 
 sys.path.append('/usr/share/inkscape/extensions')
 inkex.localization.localize()
 
-
-class IsometricProjectionTools(inkex.Effect):
+def _apply_transform(elem, xform : Transform):
+    """Apply a transform to an svg element, maintaining its center.
+    Respects inkscape:transform-center-x/y attributes
     """
-    Convert a flat 2D projection to one of the three visible sides in an
-    isometric projection, and vice versa.
+    #get the elements current position & transform center
+    bbox_center = elem.bounding_box().center
+    tcx = float(elem.get('inkscape:transform-center-x',0))
+    tcy = -float(elem.get('inkscape:transform-center-y',0)) #NB inverted
+    xform_center = bbox_center + (tcx,tcy)
+    #compute the offset to keep the center stationary, then apply it
+    offset = Transform().add_translate(xform_center - xform.apply_to_point(xform_center))
+    xform = offset @ xform
+
+    #compute any existing transform with the new one
+    old_xform = Transform(elem.get('transform'))
+    new_xform = xform @ old_xform
+
+    #apply to the element
+    elem.set('transform', new_xform)
+
+    #update transform-center-x/y if necessary
+    if tcx != 0 or tcy != 0:
+        #we need to recompute the bounding box center as it will have changed
+        #  NB the bounding box is non-linear as it is based on min & max
+        #     coordinates, and min/max are non-linear operators. So we can't
+        #     just use our linear transforms to find the new bounding box
+        #     center. It's better to let inkscape do it internally :)
+        new_bbox_center = elem.bounding_box().center
+        new_tc = xform_center - new_bbox_center
+        elem.set('inkscape:transform-center-x',f'{new_tc.x}')
+        elem.set('inkscape:transform-center-y',f'{-new_tc.y}') #NB inverted
+
+def _ar_to_xy(angle,radius):
+    """Convert (angle, radius) to (x, y)"""
+    return radius*math.cos(angle), radius*math.sin(angle)
+
+def _projection_matrix(u_xy, v_xy, w_xy):
+    """Create a projection matrix from 3D [u,v,w] to 2D screen coordinates [x,y]
+    from the given u,v,w axes.
+    Parameters u_xy,v_xy,w_xy are given in screen coordinates e.g. u_xy = [ux,uy]
+    Returns a 2x3 matrix P = (ux,vx,wx, uy,vy,wy) such that x,y = ux*u + vx*v + wx*w, uy*u + vy*v + wy*w
+    """
+    (ux,uy),(vx,vy),(wx,wy) = u_xy, v_xy, w_xy
+    return ux,vx,wx, uy,vy,wy
+
+def _rotation_matrix(roll, pitch, yaw):
+    """Create a rotation matrix from 2D screen coordinates [x,y] to 3D [u,v,w]
+    according to Euler angles roll, pitch, and yaw, in radians.
+
+    Euler angle order Z(yaw)Y(pitch)X(roll) (see https://en.wikipedia.org/wiki/Euler_angles)
+
+    In standard inkscape coordinates, x = right, y = down, (which imply z = into the screen).
+    Here, roll, pitch, and yaw correspond to "airplane" coordinates for a plane facing right (+x).
+    +roll will tilt the right wing down "into the page" (from y to z)
+    +pitch will tilt the nose up "out of the page" (from x to -z)
+    +yaw will turn to the right (from x to y)
+
+    Returns a 3x2 matrix R = (xu,yu, xv,yv, xw,yw) such that u,v,w = xu*x + yu*y, xv*x + yv*y, xw*x + yw*y
+    i.e. [u, v, w] = R @ [x, y], treating [u,v,w] and [x,y] as column vectors
+    NB xu is the u-component of x
+    """
+    c1,c2,c3 = math.cos(yaw), math.cos(pitch), math.cos(roll)
+    s1,s2,s3 = math.sin(yaw), math.sin(pitch), math.sin(roll)
+    xu,xv,xw = c1*c2, c2*s1, s2
+    yu,yv,yw = c1*s2*s3 - c3*s1, c1*c3 + s1*s2*s3, c2*s3
+    #zu,zv,zw = s1*s3 + c2*c3*s2, c3*s1*s2 - c1*s2, c2*c3 #for posterity
+    return xu,yu, xv,yv, xw,yw
+
+def _make_transform(projection, model):
+    """Combine a 2x3 model matrix and 3x2 projection matrix into an svg Transform"""
+    ux,vx,wx, uy,vy,wy = projection
+    xu,yu, xv,yv, xw,yw = model
+    #multiply the 2 matrices into a svg transform matrix
+    #  this is equivalent to transforming [x1,y1] -> [u,v,w] -> [x2,y2]
+    xx, xy = ux*xu + vx*xv + wx*xw, ux*yu + vx*yv + wx*yw
+    yx, yy = uy*xu + vy*xv + wy*xw, uy*yu + vy*yv + wy*yw
+    return Transform((xx,yx,xy,yy,0,0)) #svg matrix() order
+
+class AxonometricProjectionEffect(Effect):
+    """Apply an axonometric projection to a drawing element.
+    Stores the projection parameters (model & projection matrices) in attribute DATA_ATTR
     """
 
-    attrTransformCenterX = inkex.addNS('transform-center-x', 'inkscape')
-    attrTransformCenterY = inkex.addNS('transform-center-y', 'inkscape')
+    DATA_ATTR = 'axpr-data'
+    
+    @staticmethod
+    def _format_data(*args, fmt='{:.6g}'):
+        """format ((1,2,3),(4,5,6)) -> '1 2 3; 4 5 6'"""
+        return '; '.join(' '.join(fmt.format(x) for x in arg) for arg in args)
 
+    @classmethod
+    def _set_data(cls, elem, data : str | None):
+        """Set the element's data attribute to data, or delete the attribute if data is None."""
+        if data is None:
+            del elem.attrib[cls.DATA_ATTR]
+        else:
+            elem.set(cls.DATA_ATTR, data)
+
+    @classmethod
+    def _parse_data(cls, elem):
+        """Parse the element's data attribute into tuples of numbers, or None"""
+        data = elem.get(cls.DATA_ATTR)
+        if data is not None:
+            #parse '1 2 3; 4 5 6' -> ((1,2,3),(4,5,6))
+            return tuple(tuple(float(v) for v in s.split()) for s in data.split(';'))
+        return None
 
     def __init__(self):
-        """
-        Constructor.
-        """
+        Effect.__init__(self)
+        self.arg_parser.add_argument('--mode',choices=['apply','update-projection','update-model','remove'],default='apply',
+                                     help='apply: apply the specified projection and model transforms, removing any prior axonometric transform,\n'
+                                     +'update-projection: set only the projection axes, keeping the model pose unchanged,\n'
+                                     +'update-model: set only the model pose, keeping the projection axes unchanged,\n'
+                                     +'remove: remove any prior axonometric projection')
+        self.arg_parser.add_argument('--projection-preset',choices=['none','isometric','dimetric'],default='none',
+                                     help='none: projection axes are set manually by --{u/v/w}-{angle/scale} parameters,\n'
+                                     +'isometric: projection axes are set to isometric, other projection parameters are ignored,\n'
+                                     +'dimetric: projection axes are set to dimetric, --u-angle is used to set dimetric angle.')
+        self.arg_parser.add_argument('--u-angle',type=float,default=-30, help='Projection u-axis angle (in degrees, inkscape screen coordinates)')
+        self.arg_parser.add_argument('--v-angle',type=float,default=90, help='Projection v-axis angle (in degrees, inkscape screen coordinates)')
+        self.arg_parser.add_argument('--w-angle',type=float,default=210, help='Projection w-axis angle (in degrees, inkscape screen coordinates)')
+        self.arg_parser.add_argument('--u-scale',type=float,default=1, help='Projection u-axis scale')
+        self.arg_parser.add_argument('--v-scale',type=float,default=1, help='Projection v-axis scale')
+        self.arg_parser.add_argument('--w-scale',type=float,default=1, help='Projection w-axis scale')
+        self.arg_parser.add_argument('--model-preset',choices=['none','top','left','right'],default='none',
+                                     help='none: model pose is set manually by --{roll/pitch/yaw},\n'
+                                     +'right: roll,pitch,yaw = 0,0,0; top: roll,pitch,yaw = 90,0,0; left: roll,pitch,yaw = 0,90,0')
+        self.arg_parser.add_argument('--roll',type=float,default=0, help='Model roll, in degrees. Rotation about +x, rotates +y (down) into the page, before projection.')
+        self.arg_parser.add_argument('--pitch',type=float,default=0, help='Model pitch, in degrees. Rotation about +y, rotates +x (right) out of the page, before projection.')
+        self.arg_parser.add_argument('--yaw',type=float,default=0, help='Model yaw, in degrees. Rotation from +x to +y, before projection.')
 
-        inkex.Effect.__init__(self)
+    def _get_projection_matrix(self):
+        ua, va, wa = self.options.u_angle, self.options.v_angle, self.options.w_angle
+        us, vs, ws = self.options.u_scale, self.options.v_scale, self.options.w_scale
+        if self.options.projection_preset == 'isometric':
+            ua,va,wa = -30, 90, 210
+            us,vs,ws = 1,1,1
+        elif self.options.projection_preset == 'dimetric':
+            ua,va,wa = ua, 90, 180-ua #ensure symmetry
+            us,vs,ws = 1,1,1
+        elif self.options.projection_preset != 'none':
+            inkex.errormsg(f'Unknown projection preset "{self.options.projection_preset}", ignoring.')
+        ua, va, wa = math.radians(ua), math.radians(va), math.radians(wa)
+        return _projection_matrix(_ar_to_xy(ua,us),_ar_to_xy(va,vs),_ar_to_xy(wa,ws))
 
-        self.arg_parser.add_argument(
-            '-c', '--conversion',
-            dest='conversion', default='top',
-            help='Conversion to perform: (top|left|right)')
-        # Note: adding `type=bool` for the reverse option seems to break it when used
-        # from within Inkscape. Not sure why.
-        self.arg_parser.add_argument(
-            '-r', '--reverse',
-            dest='reverse', default="false",
-            help='Reverse the transformation from isometric projection '
-            'to flat 2D')
-        self.arg_parser.add_argument(
-            '-i', '--orthoangle_1', type=float,
-            dest='orthoangle_1', default="30",
-            help='Angle in degrees')
-        self.arg_parser.add_argument(
-            '-j', '--orthoangle_2', type=float,
-            dest='orthoangle_2',
-            help='Second angle in degrees, for dimetric projections')
-
-
-    def __initConstants(self, angle_1, angle_2):
-        angle_left = angle_1
-
-        self.rad_l = math.radians(angle_left)
-        self.cos_l = math.cos(self.rad_l)
-        self.sin_l = math.sin(self.rad_l)
-
-        if angle_2 is None or angle_2 == angle_1:
-            # Dimetric, where the two angles are the same. This includes the 30° isometric view.
-            self.rad_r = self.rad_l
-            self.cos_r = self.cos_l
-            self.sin_r = self.sin_l
-            self.top_c = -self.cos_l
-            self.top_d = self.sin_l
-        else:
-            # Trimetric, where the left and right angle differ.
-            angle_right = angle_2
-            self.rad_r = math.radians(angle_right)
-            self.cos_r = math.cos(self.rad_r)
-            self.sin_r = math.sin(self.rad_r)
-
-            # Combined values for trimetric transform of top piece.
-            self.rad_lp_r = math.radians(angle_left + angle_right)
-            self.sin_lp_r = math.sin(self.rad_lp_r)
-            self.shear_factor_top = math.sin(self.rad_lp_r)
-            self.tan_shear_top = math.tan(self.rad_l + self.rad_r - math.pi / 2)
-
-            self.top_c = self.shear_factor_top * (self.cos_l * self.tan_shear_top - self.sin_l)
-            self.top_d = self.shear_factor_top * (self.sin_l * self.tan_shear_top + self.cos_l)
-
-        # Combined affine transformation matrices. The bottom row of these 3×3
-        # matrices is omitted; it is always [0, 0, 1].
-        self.transformations = {
-            # From 2D to isometric top down view (dimetric, isometric):
-            #   * scale vertically by cos(∠)
-            #   * shear horizontally by -∠
-            #   * rotate clock-wise ∠
-            #
-            # From 2D to isometric top down view (trimetric):
-            #   * scale vertically by sin(∠(left) + ∠(right)
-            #   * shear horizontally by ∠(left) + ∠(right) - 90°
-            #   * rotate clock-wise ∠
-            'to_top':       Transform(((self.cos_l,        self.top_c,       0),
-                                       (self.sin_l,        self.top_d,       0))),
-
-            # From 2D to axonometric left-hand side view:
-            #   * scale horizontally by cos(∠)
-            #   * shear vertically by -∠
-            'to_left':      Transform(((self.cos_l,        0,                0),
-                                       (self.sin_l,        1,                0))),
-
-            # From 2D to axonometric right-hand side view:
-            #   * scale horizontally by cos(∠)
-            #   * shear vertically by ∠
-            'to_right':     Transform(((self.cos_r ,       0,                0),
-                                       (-self.sin_r,       1,                0)))
-        }
-
-        # The inverse matrices of the above perform the reverse transformations.
-        self.transformations['from_top'] = -self.transformations['to_top']
-        self.transformations['from_left'] = -self.transformations['to_left']
-        self.transformations['from_right'] = -self.transformations['to_right']
-
-    def getTransformCenter(self, midpoint, node):
-        """
-        Find the transformation center of an object. If the user set it
-        manually by dragging it in Inkscape, those coordinates are used.
-        Otherwise, an attempt is made to find the center of the object's
-        bounding box.
-        """
-
-        c_x = node.get(self.attrTransformCenterX)
-        c_y = node.get(self.attrTransformCenterY)
-
-        # Default to dead-center.
-        if c_x is None:
-            c_x = 0.0
-        else:
-            c_x = float(c_x)
-        if c_y is None:
-            c_y = 0.0
-        else:
-            c_y = float(c_y)
-
-        x = midpoint[0] + c_x
-        y = midpoint[1] - c_y
-
-        return [x, y]
-
-    def translateBetweenPoints(self, tr, here, there):
-        """
-        Add a translation to a matrix that moves between two points.
-        """
-
-        x = there[0] - here[0]
-        y = there[1] - here[1]
-        tr.add_translate(x, y)
-
-    def moveTransformationCenter(self, node, midpoint, center_new):
-        """
-        If a transformation center is manually set on the node, move it to
-        match the transformation performed on the node.
-        """
-
-        c_x = node.get(self.attrTransformCenterX)
-        c_y = node.get(self.attrTransformCenterY)
-
-        if c_x is not None:
-            x = str(center_new[0] - midpoint[0])
-            node.set(self.attrTransformCenterX, x)
-        if c_y is not None:
-            y = str(midpoint[1] - center_new[1])
-            node.set(self.attrTransformCenterY, y)
-
+    def _get_model_matrix(self):
+        roll, pitch, yaw = self.options.roll, self.options.pitch, self.options.yaw
+        if self.options.model_preset == 'top':
+            roll, pitch, yaw = 90, 0, 0
+        elif self.options.model_preset == 'left':
+            roll, pitch, yaw = 0, 90, 0
+        elif self.options.model_preset == 'right':
+            roll, pitch, yaw = 0, 0, 0
+        elif self.options.model_preset != 'none':
+            inkex.errormsg(f'Unknown model preset "{self.options.model_preset}", ignoring.')
+        roll, pitch, yaw = math.radians(roll), math.radians(pitch), math.radians(yaw)
+        return _rotation_matrix(roll, pitch, yaw)
+    
     def effect(self):
-        """
-        Apply the transformation. If an element already has a transformation
-        attribute, it will be combined with the transformation matrix for the
-        requested conversion.
-        """
+        # deal with parameters
+        mode = self.options.mode
+        projection = self._get_projection_matrix()
+        model = self._get_model_matrix()
 
-        self.__initConstants(self.options.orthoangle_1, self.options.orthoangle_2)
+        #precompute
+        if mode == 'apply':
+            pre_xform = _make_transform(projection, model)
+            pre_data = self._format_data(projection, model)
 
-        if self.options.reverse == "true":
-            conversion = "from_" + self.options.conversion
-        else:
-            conversion = "to_" + self.options.conversion
+        #apply the operation to each selected element
+        for elem in self.svg.selection:
+            #get any existing axonometric data
+            old_data = self._parse_data(elem)
 
-        if len(self.svg.selected) == 0:
-            inkex.errormsg(_("Please select an object to perform the "
-                             "isometric projection transformation on."))
-            return
+            if old_data is None:
+                #the element isn't already axonometric
+                if mode == 'remove':
+                    continue #ignore
+                elif mode.startswith('update'):
+                    inkex.errormsg('Update on element that is not axonometric, ignoring')
+                    continue
+                old_xform = None
+            else:
+                old_proj, old_model = old_data
+                old_xform = _make_transform(old_proj, old_model)
 
-        # Default to the flat 2D to isometric top down view conversion if an
-        # invalid identifier is passed.
-        effect_matrix = self.transformations.get(
-            conversion, self.transformations.get('to_top'))
+            if mode == 'apply':
+                #use the pre-computed values
+                xform, data = pre_xform, pre_data
+            elif mode == 'remove':
+                xform = Transform()
+                data = None
+            elif mode == 'update-projection':
+                xform = _make_transform(projection, old_model)
+                data = self._format_data(projection, old_model)
+            elif mode == 'update-model':
+                xform = _make_transform(old_proj, model)
+                data = self._format_data(old_proj, model)
+            else:
+                inkex.errormsg(f'Unknown mode: "{mode}"')
+                return
 
-        for id, node in self.svg.selected.items():
-            bbox = node.bounding_box()
-            midpoint = [bbox.center_x, bbox.center_y]
-            center_old = self.getTransformCenter(midpoint, node)
-            transform = Transform(node.get("transform"))
-            # Combine our transformation matrix with any pre-existing
-            # transform.
-            tr = effect_matrix @ transform
+            # compose the new transform with the inverse of the old to remove it
+            if old_xform is not None:
+                xform = xform @ -old_xform
 
-            # Compute the location of the transformation center after applying
-            # the transformation matrix.
-            center_new = center_old[:]
-            #Transform(matrix).apply_to_point(center_new)
-            tr.apply_to_point(center_new)
-            tr.apply_to_point(midpoint)
-
-            # Add a translation transformation that will move the object to
-            # keep its transformation center in the same place.
-            self.translateBetweenPoints(tr, center_new, center_old)
-
-            node.set('transform', str(tr))
-
-            # Adjust the transformation center.
-            self.moveTransformationCenter(node, midpoint, center_new)
+            # do it
+            _apply_transform(elem, xform)
+            self._set_data(elem, data)
 
 # Create effect instance and apply it.
-effect = IsometricProjectionTools()
+effect = AxonometricProjectionEffect()
 effect.run()

@@ -3,15 +3,9 @@
   <name>Dimetric Projection</name>
   <id>nl.jeroenhoek.inkscape.filter.dimetric_projection_tool</id>
   <dependency type="executable" location="extensions">axonometric_projection.py</dependency>
-  <param name="conversion" type="optiongroup" gui-text="Convert flat projection to">
-    <option value="top">Dimetric top side</option>
-    <option value="left">Dimetric left-hand side</option>
-    <option value="right">Dimetric right-hand side</option>
-  </param>
-  <param name="reverse" type="bool" gui-text="Reverse transformation">false</param>
-  <param name="orthoangle_1" type="float" precision="3" min="0" max="90" gui-text="Orthographic angle">15.000</param>
   <effect>
     <object-type>all</object-type>
+    <menu-tip>Apply dimetric transform to elements</menu-tip>
     <effects-menu>
        <submenu _name="Axonometric Projection"/>
     </effects-menu>
@@ -19,5 +13,25 @@
   <script>
     <command reldir="extensions" interpreter="python">axonometric_projection.py</command>
   </script>
+
+  <param name="projection-preset" type="string" gui-hidden="true">dimetric</param>
+  
+  <param name="mode" type="optiongroup" appearance="combo"
+          gui-text="Mode" gui-description="Apply: set the transform, Axes: change dimetric angle only, Pose: change model pose only, Remove: remove any existing iso/di/tri-metric transform">
+    <option value="apply">Apply</option>
+    <option value="update-projection">Axes</option>
+    <option value="update-model">Pose</option>
+    <option value="remove">Remove</option>
+  </param>
+
+  <param name="model-preset" type="optiongroup"
+    gui-text="Set model pose to..." gui-description="">
+    <option value="top">top side.</option>
+    <option value="left">left-hand side.</option>
+    <option value="right">right-hand side.</option>
+  </param>
+  
+  <param name="u-angle" type="float" precision="3" min="-90" max="270" appearance="full"
+    gui-text="Dimetric angle (deg)" gui-description="">-30</param>
 </inkscape-extension>
 
